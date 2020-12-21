@@ -1,0 +1,189 @@
+----------------------------  2  ---------------------------------
+
+----------------------------  9  ---------------------------------
+
+----------------------------  17  ---------------------------------
+demo=# create view flight_summary as
+demo-# select flight_no,status from flights;
+CREATE VIEW
+demo=# select * from flight_summary limit 10;
+ flight_no |  status   
+-----------+-----------
+ PG0405    | Arrived
+ PG0404    | Arrived
+ PG0405    | Arrived
+ PG0402    | Scheduled
+ PG0405    | On Time
+ PG0404    | Scheduled
+ PG0403    | Delayed
+ PG0402    | On Time
+ PG0405    | Scheduled
+ PG0402    | Scheduled
+(10 строк)
+
+demo=# create view flight_airport as
+select distinct flights.flight_no,airports.airport_name
+from flights
+join airports on airports.airport_code=flights.arrival_airport;
+CREATE VIEW
+demo=# select * from flight_airport limit 10;
+ flight_no | airport_name  
+-----------+---------------
+ PG0598    | Кольцово
+ PG0687    | Талаги
+ PG0200    | Владивосток
+ PG0302    | Шереметьево
+ PG0323    | Горно-Алтайск
+ PG0070    | Богашёво
+ PG0478    | Воркута
+ PG0258    | Нарьян-Мар
+ PG0492    | Талаги
+ PG0295    | Спиченково
+(10 строк)
+----------------------------  18  ---------------------------------
+demo=# ALTER TABLE aircrafts ADD COLUMN specifications jsonb;
+ALTER TABLE
+demo=# UPDATE aircrafts
+demo-# SET specifications =
+demo-# '{ "crew": 2,
+demo'# "engines": { "type": "IAE V2500",
+demo'# "num": 2
+demo'# }
+demo'# }'::jsonb
+demo-# WHERE aircraft_code = '320';
+UPDATE 1
+demo=# SELECT model, specifications
+demo-# FROM aircrafts
+demo-# WHERE aircraft_code = '320';
+      model      |                     specifications                      
+-----------------+---------------------------------------------------------
+ Airbus A320-200 | {"crew": 2, "engines": {"num": 2, "type": "IAE V2500"}}
+(1 строка)
+
+demo=# SELECT model, specifications->'engines' AS engines
+demo-# FROM aircrafts
+demo-# WHERE aircraft_code = '320';
+      model      |             engines             
+-----------------+---------------------------------
+ Airbus A320-200 | {"num": 2, "type": "IAE V2500"}
+(1 строка)
+
+demo=# SELECT model, specifications #> '{ engines, type }'
+demo-# FROM aircrafts
+demo-# WHERE aircraft_code = '320';
+      model      |  ?column?   
+-----------------+-------------
+ Airbus A320-200 | "IAE V2500"
+(1 строка)
+
+demo=# select * from tickets limit 10;
+   ticket_no   | book_ref | passenger_id |   passenger_name    |                                   co
+ntact_data                                   
+---------------+----------+--------------+---------------------+-------------------------------------
+---------------------------------------------
+ 0005432000987 | 06B046   | 8149 604011  | VALERIY TIKHONOV    | {"phone": "+70127117011"}
+ 0005432000988 | 06B046   | 8499 420203  | EVGENIYA ALEKSEEVA  | {"phone": "+70378089255"}
+ 0005432000989 | E170C3   | 1011 752484  | ARTUR GERASIMOV     | {"phone": "+70760429203"}
+ 0005432000990 | E170C3   | 4849 400049  | ALINA VOLKOVA       | {"email": "volkova.alina_03101973@po
+stgrespro.ru", "phone": "+70582584031"}
+ 0005432000991 | F313DD   | 6615 976589  | MAKSIM ZHUKOV       | {"email": "m-zhukov061972@postgrespr
+o.ru", "phone": "+70149562185"}
+ 0005432000992 | F313DD   | 2021 652719  | NIKOLAY EGOROV      | {"phone": "+70791452932"}
+ 0005432000993 | F313DD   | 0817 363231  | TATYANA KUZNECOVA   | {"email": "kuznecova-t-011961@postgr
+espro.ru", "phone": "+70400736223"}
+ 0005432000994 | CCC5CB   | 2883 989356  | IRINA ANTONOVA      | {"email": "antonova.irina04121972@po
+stgrespro.ru", "phone": "+70844502960"}
+ 0005432000995 | CCC5CB   | 3097 995546  | VALENTINA KUZNECOVA | {"email": "kuznecova.valentina101019
+76@postgrespro.ru", "phone": "+70268080457"}
+ 0005432000996 | 1FB1E4   | 6866 920231  | POLINA ZHURAVLEVA   | {"phone": "+70639918455"}
+(10 строк)
+
+demo=# select contact_data from tickets limit 10;
+                                   contact_data                                   
+----------------------------------------------------------------------------------
+ {"phone": "+70127117011"}
+ {"phone": "+70378089255"}
+ {"phone": "+70760429203"}
+ {"email": "volkova.alina_03101973@postgrespro.ru", "phone": "+70582584031"}
+ {"email": "m-zhukov061972@postgrespro.ru", "phone": "+70149562185"}
+ {"phone": "+70791452932"}
+ {"email": "kuznecova-t-011961@postgrespro.ru", "phone": "+70400736223"}
+ {"email": "antonova.irina04121972@postgrespro.ru", "phone": "+70844502960"}
+ {"email": "kuznecova.valentina10101976@postgrespro.ru", "phone": "+70268080457"}
+ {"phone": "+70639918455"}
+(10 строк)
+
+demo=# ALTER TABLE aircrafts ADD COLUMN specifications jsonb;
+ОШИБКА:  столбец "specifications" отношения "aircrafts" уже существует
+demo=# ALTER TABLE airports ADD COLUMN properties jsonb;
+ALTER TABLE
+demo=# select * from airports limit 10;
+ airport_code |  airport_name   |    city     | longitude  | latitude  |      timezone      | propert
+ies 
+--------------+-----------------+-------------+------------+-----------+--------------------+--------
+----
+ MJZ          | Мирный          | Мирный      | 114.038928 | 62.534689 | Asia/Yakutsk       | 
+ NBC          | Бегишево        | Нижнекамск  |      52.06 |     55.34 | Europe/Moscow      | 
+ NOZ          | Спиченково      | Новокузнецк |    86.8772 |   53.8114 | Asia/Novokuznetsk  | 
+ NAL          | Нальчик         | Нальчик     |    43.6366 |   43.5129 | Europe/Moscow      | 
+ OGZ          | Беслан          | Владикавказ |    44.6066 |   43.2051 | Europe/Moscow      | 
+ CSY          | Чебоксары       | Чебоксары   |    47.3473 |   56.0903 | Europe/Moscow      | 
+ NYM          | Надым           | Надым       |    72.6989 |   65.4809 | Asia/Yekaterinburg | 
+ NYA          | Нягань          | Нягань      |     65.615 |     62.11 | Asia/Yekaterinburg | 
+ URS          | Курск-Восточный | Курск       |    36.2956 |   51.7506 | Europe/Moscow      | 
+ SKX          | Саранск         | Саранск     |    45.2123 |   54.1251 | Europe/Moscow      | 
+(10 строк)
+
+demo=# UPDATE airports
+demo-# SET properties =
+demo-# '{ "class": 1,
+demo'#    "runways_count": 2,
+demo'#    "volume_trancportation": 10000
+demo'# }'::jsonb
+demo-# WHERE airport_code = 'SVO';
+UPDATE 1
+demo=# select * from airports where airport_code ='SVO';
+ airport_code | airport_name |  city  | longitude | latitude  |   timezone    |                      
+      properties                            
+--------------+--------------+--------+-----------+-----------+---------------+----------------------
+--------------------------------------------
+ SVO          | Шереметьево  | Москва | 37.414589 | 55.972642 | Europe/Moscow | {"class": 1, "runways
+_count": 2, "volume_trancportation": 10000}
+(1 строка)
+
+demo=# select properties from airports where airport_code ='SVO';
+                            properties                            
+------------------------------------------------------------------
+ {"class": 1, "runways_count": 2, "volume_trancportation": 10000}
+(1 строка)
+
+demo=# UPDATE airports                                  
+SET properties =
+'{ "class": 1,
+   "runways_count": 3,
+   "volume_trancportation": 10000
+}'::jsonb
+WHERE airport_code = 'SVO';
+UPDATE 1
+demo=# select properties from airports where airport_code ='SVO';
+                            properties                            
+------------------------------------------------------------------
+ {"class": 1, "runways_count": 3, "volume_trancportation": 10000}
+(1 строка)
+
+demo=# select * from ticket_flights limit 10;
+   ticket_no   | flight_id | fare_conditions |  amount  
+---------------+-----------+-----------------+----------
+ 0005432159776 |     30625 | Business        | 42100.00
+ 0005435212351 |     30625 | Business        | 42100.00
+ 0005435212386 |     30625 | Business        | 42100.00
+ 0005435212381 |     30625 | Business        | 42100.00
+ 0005432211370 |     30625 | Business        | 42100.00
+ 0005435212357 |     30625 | Comfort         | 23900.00
+ 0005435212360 |     30625 | Comfort         | 23900.00
+ 0005435212393 |     30625 | Comfort         | 23900.00
+ 0005435212374 |     30625 | Comfort         | 23900.00
+ 0005435212365 |     30625 | Comfort         | 23900.00
+(10 строк)
+
+demo=# 

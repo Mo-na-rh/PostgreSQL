@@ -1,0 +1,95 @@
+----------------  3  -------------------
+ EXPLAIN
+WITH add_row AS (
+    INSERT INTO aircrafts_tmp SELECT * FROM aircrafts
+     RETURNING *
+ )
+ -- Добавим информацию об изменении в наш журнал,
+ -- время добавления будет выставлено по умолчанию -- текущее
+ INSERT INTO aircrafts_log
+ ( aircraft_code, model, range, operation )
+ SELECT add_row.aircraft_code, add_row.model, add_row.range, 'INSERT'
+ FROM add_row;
+                               QUERY PLAN                               
+------------------------------------------------------------------------
+ Insert on aircrafts_log  (cost=1.09..1.32 rows=9 width=92)
+   CTE add_row
+     ->  Insert on aircrafts_tmp  (cost=0.00..1.09 rows=9 width=52)
+           ->  Seq Scan on aircrafts  (cost=0.00..1.09 rows=9 width=52)
+   ->  CTE Scan on add_row  (cost=0.00..0.23 rows=9 width=92)
+(5 строк)
+
+----------------  6  -------------------
+explain SELECT
+    model, range,
+    row_number() OVER ()  AS num
+FROM aircrafts;
+                           QUERY PLAN                           
+----------------------------------------------------------------
+ WindowAgg  (cost=0.00..1.20 rows=9 width=44)
+   ->  Seq Scan on aircrafts  (cost=0.00..1.09 rows=9 width=36)
+(2 строки)
+
+----------------  8  -------------------
+explain analyze
+SELECT a.aircraft_code AS a_code,
+a.model,
+( SELECT count( f.aircraft_code )
+FROM flights f
+WHERE f.aircraft_code = a.aircraft_code
+) AS num_flights
+FROM aircrafts a
+GROUP BY 1, 2
+ORDER BY 3 DESC;
+                                                                QUERY PLAN                                       
+                         
+-----------------------------------------------------------------------------------------------------------------
+-------------------------
+ Sort  (cost=7062.79..7062.81 rows=9 width=56) (actual time=185.153..185.160 rows=9 loops=1)
+   Sort Key: ((SubPlan 1)) DESC
+   Sort Method: quicksort  Memory: 17kB
+   ->  Group  (cost=0.14..7062.65 rows=9 width=56) (actual time=22.948..185.131 rows=9 loops=1)
+         Group Key: a.aircraft_code
+         ->  Index Scan using aircrafts_pkey on aircrafts a  (cost=0.14..12.27 rows=9 width=48) (actual time=0.01
+0..0.040 rows=9 loops=1)
+         SubPlan 1
+           ->  Aggregate  (cost=783.36..783.37 rows=1 width=8) (actual time=20.558..20.558 rows=1 loops=9)
+                 ->  Seq Scan on flights f  (cost=0.00..773.01 rows=4140 width=4) (actual time=2.509..18.529 rows
+=3680 loops=9)
+                       Filter: (aircraft_code = a.aircraft_code)
+                       Rows Removed by Filter: 29441
+ Planning Time: 0.192 ms
+ Execution Time: 185.294 ms
+(13 строк)
+
+-- with join
+ EXPLAIN ANALYZE
+SELECT a.aircraft_code AS a_code,
+a.model,
+count( a.aircraft_code ) AS num_routes
+FROM aircrafts a
+LEFT OUTER JOIN flights f
+ON f.aircraft_code = a.aircraft_code
+GROUP BY 1, 2
+ORDER BY 3 DESC;
+                                                           QUERY PLAN                                            
+               
+-----------------------------------------------------------------------------------------------------------------
+---------------
+ Sort  (cost=985.13..985.16 rows=9 width=56) (actual time=110.287..110.295 rows=9 loops=1)
+   Sort Key: (count(a.aircraft_code)) DESC
+   Sort Method: quicksort  Memory: 17kB
+   ->  HashAggregate  (cost=984.90..984.99 rows=9 width=56) (actual time=110.266..110.277 rows=9 loops=1)
+         Group Key: a.aircraft_code
+         ->  Hash Right Join  (cost=1.20..819.30 rows=33121 width=48) (actual time=0.037..67.837 rows=33122 loops
+=1)
+               Hash Cond: (f.aircraft_code = a.aircraft_code)
+               ->  Seq Scan on flights f  (cost=0.00..690.21 rows=33121 width=4) (actual time=0.007..17.582 rows=
+33121 loops=1)
+               ->  Hash  (cost=1.09..1.09 rows=9 width=48) (actual time=0.023..0.024 rows=9 loops=1)
+                     Buckets: 1024  Batches: 1  Memory Usage: 5kB
+                     ->  Seq Scan on aircrafts a  (cost=0.00..1.09 rows=9 width=48) (actual time=0.007..0.013 row
+s=9 loops=1)
+ Planning Time: 0.187 ms
+ Execution Time: 110.346 ms
+(13 строк)

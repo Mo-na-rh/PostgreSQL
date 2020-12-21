@@ -1,0 +1,68 @@
+--------------   2   -----------------------
+-- first transaction
+BEGIN;
+
+SELECT * FROM aircrafts_tmp
+    WHERE range < 2000;
+
+UPDATE aircrafts_tmp
+    SET range = 2100
+    WHERE aircraft_code = 'CN1';
+
+UPDATE aircrafts_tmp
+    SET range = 1900
+    WHERE aircraft_code = 'CR2';
+-- очередь второй транзакции
+ROLLBACK;
+
+-- second transaction
+BEGIN;
+
+SELECT * FROM aircrafts_tmp
+    WHERE range < 2000;
+
+DELETE FROM aircrafts_tmp WHERE range < 2000;
+-- очередь первой транзакции
+COMMIT;
+
+--------------   3   -----------------------
+-- first transaction
+BEGIN;
+UPDATE aircrafts_tmp
+    SET range = 2100
+    WHERE aircraft_code = 'CR2';
+-- Обновление произошло, 2100
+SELECT * FROM aircrafts_tmp
+    WHERE aircraft_code = 'CR2';
+-- Очередь второй транзакции 
+COMMIT;
+-- Очередь второй транзакции 
+
+-- second transaction
+BEGIN;
+
+-- Копия данных в этой транзакции
+-- осталась неизменной, 2700
+SELECT * FROM aircrafts_tmp
+    WHERE aircraft_code = 'CR2';
+
+-- Ждем завершения первой транзакции 
+--  Очередь первой транзакции 
+-- commit
+
+UPDATE aircrafts_tmp
+    SET range = 2500
+    WHERE aircraft_code = 'CR2';
+
+-- Видим обновленную копию своих данных, 2500
+SELECT * FROM aircrafts_tmp
+    WHERE aircraft_code = 'CR2';
+
+-- Сохраняем
+COMMIT;
+
+-- Обновление первой транзакции
+-- было потеряно, 2500
+
+SELECT * FROM aircrafts_tmp
+    WHERE aircraft_code = 'CR2';

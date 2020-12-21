@@ -1,0 +1,113 @@
+------------------------ 1 -----------------------------
+-- Создадим таблицу с двумя полями
+CREATE TEMP TABLE students (
+    doc_ser text,
+    doc_num text
+);
+
+-- Создадим уникальный индекс для пары полей
+CREATE UNIQUE INDEX students_unique
+    ON students ( doc_ser, doc_num );
+
+-- Попробуем добавить следующие строки:
+-- ОК
+INSERT INTO students
+VALUES ( '234', '345' );
+
+INSERT INTO students
+VALUES ( '234', '345' );
+-- Ошибка: нарушение уникальности
+
+INSERT INTO students
+VALUES ( '234', NULL );
+-- ОК
+
+INSERT INTO students
+VALUES ( '234', NULL );
+-- ОК
+
+-- Проверим результат
+-- Видим, что обе последние строки добавились, несмотря
+-- на их кажущуюся одинаковость, это произошло
+-- по той причине, что NULL значения не равны между собой
+SELECT * FROM students;
+
+------------------------ 3 -----------------------------
+\timing on
+
+-- Посмотрим, сколько займет каждый запрос
+-- без индекса
+SELECT count(*)
+    FROM ticket_flights
+    WHERE fare_conditions = 'Comfort';
+
+ count 
+-------
+ 17291
+(1 строка)
+
+Время: 515,557 мс
+
+SELECT count(*)
+    FROM ticket_flights
+    WHERE fare_conditions = 'Business';
+
+ count  
+--------
+ 107642
+(1 строка)
+
+Время: 460,136 мс
+
+SELECT count(*)
+    FROM ticket_flights
+    WHERE fare_conditions = 'Economy';
+
+ count  
+--------
+ 920793
+(1 строка)
+
+Время: 460,136 мс
+
+
+-- Добавим индекс
+CREATE INDEX ON ticket_flights ( fare_conditions );
+
+-- Проверим, насколько изменилось время
+-- Как и следовало ожидать, наибольший прирост
+-- производительности оказался у запроса 'Comfort',
+-- т.к. объем этой выборки значительно меньше остальных
+SELECT count(*)
+    FROM ticket_flights
+    WHERE fare_conditions = 'Comfort';
+ 
+ \count 
+-------
+ 17291
+(1 строка)
+
+Время: 114,079 мс
+
+SELECT count(*)
+    FROM ticket_flights
+    WHERE fare_conditions = 'Business';
+ 
+ count  
+--------
+ 107642
+(1 строка)
+
+Время: 353,637 мс
+
+
+SELECT count(*)
+    FROM ticket_flights
+    WHERE fare_conditions = 'Economy';
+ count  
+--------
+ 920793
+(1 строка)
+
+Время: 805,957 мс
+

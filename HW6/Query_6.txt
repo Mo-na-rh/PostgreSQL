@@ -1,0 +1,91 @@
+------------------ 1 -------------------------------------------------
+-- Создадим копию таблицы самолетов
+CREATE TEMP TABLE aircrafts_tmp (
+    LIKE aircrafts INCLUDING CONSTRAINTS INCLUDING INDEXES
+);
+
+-- Создадим журнал изменений
+CREATE TEMP TABLE aircrafts_log AS
+    SELECT * FROM aircrafts WITH NO DATA;
+-- Добавим поле времени изменения со значением по умолчанию
+ALTER TABLE aircrafts_log
+    ADD COLUMN when_add timestamp DEFAULT CURRENT_TIMESTAMP;
+-- Добавим поле типа операции
+ALTER TABLE aircrafts_log
+    ADD COLUMN operation text;
+
+-- Скопируем данные во временную таблицу
+WITH add_row AS (
+    INSERT INTO aircrafts_tmp SELECT * FROM aircrafts
+    RETURNING *
+)
+-- Добавим информацию об изменении в журнал,
+-- время добавления выставляется по умолчанию
+INSERT INTO aircrafts_log
+( aircraft_code, model, range, operation )
+SELECT add_row.aircraft_code, add_row.model, add_row.range, 'INSERT'
+FROM add_row;
+
+-- Проверка результата
+SELECT * FROM aircrafts_tmp;
+SELECT * FROM aircrafts_log;
+
+------------------ 2 -------------------------------------------------
+WITH add_row AS (
+    INSERT INTO aircrafts_tmp
+    ( aircraft_code, model, range )
+    VALUES ( 'с35', 'Tt100', 6700 )
+    RETURNING aircraft_code, model, range, 'INSERT'
+)
+INSERT INTO aircrafts_log
+( aircraft_code, model, range, operation )
+SELECT * FROM add_row;
+
+-- Результат
+SELECT * FROM aircrafts_tmp;
+SELECT * FROM aircrafts_log;
+
+------------------ 4 -------------------------------------------------
+-- Создадим копию таблицы посадочных мест
+CREATE TEMP TABLE seats_tmp (
+    LIKE seats INCLUDING CONSTRAINTS INCLUDING INDEXES
+);
+
+-- Скопируем данные во временную таблицу
+INSERT INTO seats_tmp SELECT * FROM seats;
+
+-- Проверим результат
+SELECT * FROM seats_tmp
+ORDER BY seat_no
+LIMIT 10;
+
+-- Попробуем добавить данные,
+-- в случае конфликта  -- не добавлять
+-- Условие по паре значений ( aircraft_code, seat_no )
+INSERT INTO seats_tmp
+( aircraft_code, seat_no, fare_conditions )
+VALUES
+( '321', '10A', 'Economy' ),
+( '321', '10AA', 'Economy' )
+ON CONFLICT ( aircraft_code, seat_no ) DO NOTHING;
+
+-- Проверим результат
+SELECT * FROM seats_tmp
+ORDER BY seat_no
+LIMIT 10;
+
+-- Пробуем добавить данные,
+-- в случае конфликта  -- не добавлять
+-- Условие по ограничению первичного ключа seats_tmp_pkey
+INSERT INTO seats_tmp
+( aircraft_code, seat_no, fare_conditions )
+VALUES
+( '321', '10A', 'Economy' ),
+( '321', '10AA', 'Economy' ),
+( '321', '10BB', 'Economy' )
+ON CONFLICT ON CONSTRAINT seats_tmp_pkey DO NOTHING;
+
+-- Результат
+SELECT * FROM seats_tmp
+ORDER BY seat_no
+LIMIT 10;
