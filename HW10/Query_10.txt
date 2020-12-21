@@ -1,0 +1,203 @@
+-------------------  12  --------------------------------
+demo=# SELECT * FROM Personnel;
+ emp_nbr | emp_name |         address         | birth_date 
+---------+----------+-------------------------+------------
+       0 | вакансия |                         | 2014-05-19
+       1 | Иван     | ул. Любителей языка C   | 1962-12-01
+       2 | Петр     | ул. UNIX гуру           | 1965-10-21
+       3 | Антон    | ул. Ассемблерная        | 1964-04-17
+       4 | Захар    | ул. им. СУБД PostgreSQL | 1963-09-27
+       5 | Ирина    | просп. Программистов    | 1968-05-12
+       6 | Анна     | пер. Перловый           | 1969-03-20
+       7 | Андрей   | пл. Баз данных          | 1945-11-07
+       8 | Николай  | наб. ОС Linux           | 1944-12-01
+(9 строк)
+
+Время: 0,288 мс
+
+demo=# SELECT * FROM Org_chart;
+      job_title      | emp_nbr | boss_emp_nbr |  salary   
+---------------------+---------+--------------+-----------
+ Президент           |       1 |              | 1000.0000
+ Вице-президент 1    |       2 |            1 |  900.0000
+ Вице-президент 2    |       3 |            1 |  800.0000
+ Архитектор          |       4 |            3 |  700.0000
+ Ведущий программист |       5 |            3 |  600.0000
+ Программист C       |       6 |            3 |  500.0000
+ Программист Perl    |       7 |            5 |  450.0000
+ Оператор            |       8 |            5 |  400.0000
+(8 строк)
+
+Время: 0,359 мс
+
+demo=# SELECT * FROM Personnel_org_chart;
+ emp_nbr |   emp   | boss_emp_nbr | boss  
+---------+---------+--------------+-------
+       1 | Иван    |              | 
+       2 | Петр    |            1 | Иван
+       3 | Антон   |            1 | Иван
+       4 | Захар   |            3 | Антон
+       5 | Ирина   |            3 | Антон
+       6 | Анна    |            3 | Антон
+       7 | Андрей  |            5 | Ирина
+       8 | Николай |            5 | Ирина
+(8 строк)
+
+Время: 0,666 мс
+
+demo=# SELECT * FROM Create_paths;
+ level1 | level2 | level3 | level4  
+--------+--------+--------+---------
+ Иван   | Антон  | Ирина  | Андрей
+ Иван   | Антон  | Ирина  | Николай
+ Иван   | Петр   |        | 
+ Иван   | Антон  | Захар  | 
+ Иван   | Антон  | Анна   | 
+(5 строк)
+
+Время: 3,368 мс
+
+-------------------  13  --------------------------------
+
+-- Создадим короткий цикл
+-- директор -> работник -> директор
+INSERT INTO personnel
+( emp_nbr, emp_name, address, birth_date )
+VALUES
+( 80, 'директор', 'москва', '2001-01-31' ),
+( 70, 'работник', 'москва', '2003-08-12' );
+
+INSERT INTO org_chart
+( job_title, emp_nbr, boss_emp_nbr, salary )
+VALUES
+( 'директор', 80, 70, 23 ),
+( 'работник', 70, 80, 11 );
+
+-- Создадим длинный цикл
+-- Директор -> Работник -> Программист C -> Директор
+UPDATE org_chart
+    SET boss_emp_nbr = 6
+    WHERE job_title = 'Работник';
+
+UPDATE org_chart
+    SET boss_emp_nbr = 80
+    WHERE job_title = 'Программист C';
+
+-------------------  14  --------------------------------
+demo=# SELECT * FROM up_tree_traversal2(5) AS (emp int, boss int);
+ emp | boss 
+-----+------
+   5 |    3
+   3 |    1
+   1 |     
+(3 строки)
+
+demo=# SELECT * FROM up_tree_traversal(5);
+ emp_nbr | boss_emp_nbr 
+---------+--------------
+       5 |            3
+       3 |            1
+       1 |             
+(3 строки)
+
+Время: 1,856 мс
+
+demo=# SELECT * FROM up_tree_traversal(
+    ( SELECT emp_nbr FROM Personnel
+      WHERE emp_name = 'Ирина' )
+);
+ emp_nbr | boss_emp_nbr 
+---------+--------------
+       5 |            3
+       3 |            1
+       1 |             
+(3 строки)
+
+Время: 1,452 мс
+
+
+-------------------  15  --------------------------------
+SELECT * FROM delete_subtree(
+    ( SELECT emp_nbr FROM Personnel
+      WHERE emp_name = 'Ирина' )
+);
+
+SELECT * FROM Personnel_org_chart;
+SELECT * FROM Create_paths;
+-------------------  16  --------------------------------
+demo=# SELECT * FROM delete_and_promote_subtree(
+    ( SELECT emp_nbr FROM Personnel
+      WHERE emp_name = 'Захар' )
+);
+ delete_and_promote_subtree 
+----------------------------
+ 
+(1 строка)
+
+Время: 76,885 мс
+demo=# SELECT * FROM Personnel_org_chart;
+ emp_nbr |   emp    | boss_emp_nbr |   boss   
+---------+----------+--------------+----------
+       1 | Иван     |              | 
+       2 | Петр     |            1 | Иван
+       3 | Антон    |            1 | Иван
+       9 | Кошка    |           10 | Собака
+      80 | директор |           70 | работник
+      10 | Собака   |            6 | Анна
+       6 | Анна     |           80 | директор
+      70 | работник |            6 | Анна
+(8 строк)
+
+Время: 0,719 мс
+demo=# SELECT * FROM Create_paths;
+ level1 | level2 | level3 | level4 
+--------+--------+--------+--------
+ Иван   | Антон  |        | 
+ Иван   | Петр   |        | 
+(2 строки)
+
+-------------------  17  --------------------------------
+CREATE VIEW Create_paths_5_lvl ( level1, level2, level3, level4, level5 ) AS
+  SELECT O1.emp AS e1, O2.emp AS e2, O3.emp AS e3, O4.emp AS e4, O5.emp AS e5
+  FROM Personnel_org_chart AS O1
+  LEFT OUTER JOIN Personnel_org_chart AS O2 ON O1.emp = O2.boss
+  LEFT OUTER JOIN Personnel_org_chart AS O3 ON O2.emp = O3.boss 
+  LEFT OUTER JOIN Personnel_org_chart AS O4 ON O3.emp = O4.boss
+  LEFT OUTER JOIN Personnel_org_chart AS O5 ON O4.emp = O5.boss
+  -- Если закомментировать условие WHERE, тогда будут построены
+  -- цепочки, начинающиеся с каждого работника, а не только с главного
+  -- руководителя.
+  WHERE O1.emp = 'Иван';
+
+  SELECT * FROM Create_paths_5_lvl;
+-------------------  18  --------------------------------
+demo=# begin;
+BEGIN
+Время: 0,060 мс
+demo=# declare all_person cursor for select * from personnel;
+DECLARE CURSOR
+Время: 0,157 мс
+demo=# fetch 4 from all_person;
+ emp_nbr | emp_name |        address        | birth_date 
+---------+----------+-----------------------+------------
+       0 | вакансия |                       | 2014-05-19
+       1 | Иван     | ул. Любителей языка C | 1962-12-01
+       2 | Петр     | ул. UNIX гуру         | 1965-10-21
+       3 | Антон    | ул. Ассемблерная      | 1964-04-17
+(4 строки)
+
+demo=# fetch next from all_person;
+ emp_nbr | emp_name |         address         | birth_date 
+---------+----------+-------------------------+------------
+       4 | Захар    | ул. им. СУБД PostgreSQL | 1963-09-27
+(1 строка)
+
+Время: 0,088 мс
+demo=# fetch prior from all_person;
+ emp_nbr | emp_name |     address      | birth_date 
+---------+----------+------------------+------------
+       3 | Антон    | ул. Ассемблерная | 1964-04-17
+(1 строка)
+
+Время: 0,105 мс
+
